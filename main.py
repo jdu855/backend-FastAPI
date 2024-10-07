@@ -1,7 +1,18 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI() 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 class User(BaseModel):
     email: str
@@ -21,6 +32,10 @@ def list_users():
         {
             'name': 'lady sanches',
             'email': 'sancheslady@gmail.com'
+        },
+        {
+            'name': 'samuel ariza',
+            'email': 'arizasamuel@gmail.com'
         }
     ]
 
