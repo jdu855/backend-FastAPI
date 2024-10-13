@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
-from core.connection import get_connection, close_connection
-from models.user import UserCreate, UserUpdate, UserOut
-from typing import List
+from pydantic import BaseModel
+import mysql.connector
+from core.connection import connection
+from models.user import User
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
-
+app = FastAPI() 
 # Habilitar CORS (si tienes un frontend separado)
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,92 +16,99 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.get('/')
+def root():
+    return {"message": "hello world"}
 
+@app.get("/")
+def read_root():
+    return {"nombre": "Juan David Rodriguez"}
 
-# Ruta para crear usuario (POST)
-@app.post("/users/create", response_model=UserOut)
-def create_user(user: UserCreate):
-    connection = get_connection()
-    cursor = connection.cursor()
+@app.get("/users/mysql") # <-- Cambiamos la ruta para evitar conflicto
+async def get_users_from_mysql():
+    cursor = connection.cursor(dictionary=True)  # Asegúrate de que 'connection' esté definida
+    query = "SELECT * FROM users" 
 
-    try:
-        cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (user.username, user.password))
-        connection.commit()
-
-        user_id = cursor.lastrowid
-        return {"id": user_id, "username": user.username}
-    except Exception as e:
-        connection.rollback()
-        raise HTTPException(status_code=400, detail="Error al crear usuario")
+    try: 
+        cursor.execute(query)
+        users = cursor.fetchall()
+        return users
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Error al obtener usuarios de MySQL: {err}")
     finally:
         cursor.close()
-        close_connection(connection)
-
-
-# Ruta para listar usuarios (GET)
-@app.get("/users/mysql", response_model=List[UserOut])
-def list_users():
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    cursor.execute("SELECT id, username FROM users")
-    users = cursor.fetchall()
-
-    cursor.close()
-    close_connection(connection)
-
-    return users
-
-
-# Ruta para actualizar usuario (PUT)
-@app.put("/users/update/{user_id}", response_model=UserOut)
-def update_user(user_id: int, user: UserUpdate):
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    fields_to_update = []
-    params = []
-
-    if user.username:
-        fields_to_update.append("username = %s")
-        params.append(user.username)
     
-    if user.password:
-        fields_to_update.append("password = %s")
-        params.append(user.password)
-    
-    params.append(user_id)
-    fields = ", ".join(fields_to_update)
 
-    query = f"UPDATE users SET {fields} WHERE id = %s"
+@app.post("/login")
+def login(dato: User):
+    if(dato.email == 'juan@gmail.com' and dato.password == '1234'):
+        return{
+            'estado': 'success',
+            'mensaje': 'Datos correctos',
+            'data': {
+                'user_id': 1
+            }
+        }
+    return{
+            'estado':'error',
+            'mensaje':'si yaa!'
+        }   
 
-    try:
-        cursor.execute(query, tuple(params))
-        connection.commit()
+@app.get("/users")
+async def get_users():
+    cursor = connection.cursor(dictionary=true)
+    query = "SELECT * FROM users"
 
-        return {"id": user_id, "username": user.username if user.username else "Sin cambios"}
-    except Exception as e:
-        connection.rollback()
-        raise HTTPException(status_code=400, detail="Error al actualizar usuario")
+    try: 
+        cursor.execute(query)
+        users = cursor.fetchall()
+        return users
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Error al conectar con mysql : {err}")
     finally:
         cursor.close()
-        close_connection(connection)
 
-
-# Ruta para eliminar usuario (DELETE)
-@app.delete("/users/delete/{user_id}")
-def delete_user(user_id: int):
-    connection = get_connection()
+@app.post('/user')
+async def create_user(user: User):
     cursor = connection.cursor()
+    query = "INSERT INTO users (username, password) VALUES (%s, %s)"
+    values = (user.username, user.password)
 
     try:
-        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        cursor.execute(query, values)
         connection.commit()
-
-        return {"message": "Usuario eliminado con éxito"}
-    except Exception as e:
-        connection.rollback()
-        raise HTTPException(status_code=400, detail="Error al eliminar usuario")
+        return {"message": "Usuario creado correctamente"}
+    except (mysql.connector.Error, ValueError) as err:
+        raise HTTPException(status_code=500, detail=f"Error al guardar el usuario: {err}")
     finally:
         cursor.close()
-        close_connection(connection)
+
+@app.put('/user/{id}')
+async def update_user(user: User, id: int):
+    cursor = connection.cursor()
+    query = "UPDATE users SET username = %s, password = %s WHERE id = %s"
+    values = (user.username, user.password, id)
+
+    try:
+        cursor.execute(query, values)
+        connection.commit()
+        return {"message": "Usuario actualizado correctamente"}
+    except (mysql.connector.Error, ValueError) as err:
+        raise HTTPException(status_code=500, detail=f"Error al guardar el usuario: {err}")
+    finally:
+        cursor.close()
+
+@app.delete('/user/{id}')
+async def delete_user(id: int):
+    cursor = connection.cursor()
+    query = "DELETE FROM users WHERE id = %s"
+    values = (id,)
+
+    try:
+        cursor.execute(query, values)
+        connection.commit()
+        return {"message": "Usuario eliminado correctamente"}
+    except (mysql.connector.Error, ValueError) as err:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar el usuario: {err}")
+    finally:
+        cursor.close()
