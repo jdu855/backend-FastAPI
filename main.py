@@ -6,7 +6,6 @@ from models.user import User
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI() 
-# Habilitar CORS (si tienes un frontend separado)
 
 
 class User(BaseModel):
@@ -27,18 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get('/')
-def root():
-    return {"message": "hello world"}
-
-@app.get("/")
-def read_root():
-    return {"nombre": "Juan David Rodriguez"}
-
-@app.get("/users/mysql") # <-- Cambiamos la ruta para evitar conflicto
+@app.get("/users/mysql") 
 async def get_users_from_mysql():
-    cursor = connection.cursor(dictionary=True)  # Asegúrate de que 'connection' esté definida
+    cursor = connection.cursor(dictionary=True)  
     query = "SELECT * FROM users" 
 
     try: 
@@ -53,7 +43,6 @@ async def get_users_from_mysql():
 
 @app.post("/login")
 def login(user: UserLogin):
-    # Aquí puedes implementar la lógica de autenticación
     if user.email == 'juan@gmail.com' and user.password == '1234':
         return {
             'estado': 'success',
