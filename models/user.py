@@ -5,3 +5,4 @@ class User(BaseModel):
     modelo: str
     color:str
     fecha_de_compra:str
+  

@@ -15,6 +15,9 @@ class User(BaseModel):
     color: str
     fecha_de_compra: str
 
+class UserLogin(BaseModel):
+    email: str
+    password: str
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,7 +52,7 @@ async def get_users_from_mysql():
     
 
 @app.post("/login")
-def login(user: User):
+def login(user: UserLogin):
     # Aquí puedes implementar la lógica de autenticación
     if user.email == 'juan@gmail.com' and user.password == '1234':
         return {
