@@ -7,15 +7,21 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI() 
 # Habilitar CORS (si tienes un frontend separado)
-from fastapi.middleware.cors import CORSMiddleware
+
+
+class User(BaseModel):
+    email: str
+    password: str
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todas las solicitudes de cualquier origen
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 @app.get('/')
 def root():
     return {"message": "hello world"}
@@ -40,19 +46,18 @@ async def get_users_from_mysql():
     
 
 @app.post("/login")
-def login(dato: User):
-    if(dato.email == 'juan@gmail.com' and dato.password == '1234'):
-        return{
+def login(user: User):
+    # Aquí puedes implementar la lógica de autenticación
+    if user.email == 'juan@gmail.com' and user.password == '1234':
+        return {
             'estado': 'success',
             'mensaje': 'Datos correctos',
             'data': {
                 'user_id': 1
             }
         }
-    return{
-            'estado':'error',
-            'mensaje':'si yaa!'
-        }   
+    
+    raise HTTPException(status_code=400, detail="Credenciales incorrectas")
 
 @app.get("/users")
 async def get_users():
