@@ -10,8 +10,11 @@ app = FastAPI()
 
 
 class User(BaseModel):
-    email: str
-    password: str
+    marca: str
+    modelo: str
+    color: str
+    fecha_de_compra: str
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,8 +79,8 @@ async def get_users():
 @app.post('/user')
 async def create_user(user: User):
     cursor = connection.cursor()
-    query = "INSERT INTO users (username, password) VALUES (%s, %s)"
-    values = (user.username, user.password)
+    query = "INSERT INTO users (marca, modelo, color, fecha_de_compra) VALUES (%s, %s, %s, %s)"
+    values = (user.marca, user.modelo, user.color, user.fecha_de_compra)
 
     try:
         cursor.execute(query, values)
@@ -88,11 +91,12 @@ async def create_user(user: User):
     finally:
         cursor.close()
 
+
 @app.put('/user/{id}')
 async def update_user(user: User, id: int):
     cursor = connection.cursor()
-    query = "UPDATE users SET username = %s, password = %s WHERE id = %s"
-    values = (user.username, user.password, id)
+    query = "UPDATE users SET marca = %s, modelo = %s, color = %s, fecha_de_compra = %s WHERE id = %s"
+    values = (user.marca, user.modelo, user.color, user.fecha_de_compra, id)
 
     try:
         cursor.execute(query, values)
@@ -102,6 +106,7 @@ async def update_user(user: User, id: int):
         raise HTTPException(status_code=500, detail=f"Error al guardar el usuario: {err}")
     finally:
         cursor.close()
+
 
 @app.delete('/user/{id}')
 async def delete_user(id: int):
