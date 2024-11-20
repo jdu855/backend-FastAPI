@@ -7,6 +7,13 @@ import mysql.connector
 from core.connection import connection
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
+import uvicorn
+import os
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))  # Usar el puerto proporcionado por Render
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 # Crear la aplicación FastAPI
 app = FastAPI()
