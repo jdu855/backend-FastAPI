@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI() 
 
-# Esquema de seguridad OAuth2
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
@@ -22,17 +21,14 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
-# Simulación de usuarios en memoria
 users = {
     "juan": {"username": "juan", "password": "1234", "email": "juan@gmail.com"}
 }
 
-# Función para generar el token JWT
 def encode_token(payload: dict) -> str:
     token = jwt.encode(payload, key="secret", algorithm="HS256")
     return token
 
-# Función para decodificar el token JWT
 def decode_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     try:
         data = jwt.decode(token, key="secret", algorithms=["HS256"])
@@ -52,7 +48,6 @@ app.add_middleware(
 
 @app.post("/login")
 def login(form_data: UserLogin):
-    # Buscar el usuario en la base de datos simulada por email
     user = None
     for u in users.values():
         if u["email"] == form_data.email:
@@ -68,7 +63,6 @@ def login(form_data: UserLogin):
 @app.get("/users/mysql") 
 async def get_users_from_mysql():
     cursor = connection.cursor(dictionary=True)  
-    query = "SELECT * FROM users" 
 
     try: 
         cursor.execute(query)
@@ -80,23 +74,10 @@ async def get_users_from_mysql():
         cursor.close()
     
 
-@app.post("/login")
-def login(user: UserLogin):
-    if user.email == 'juan@gmail.com' and user.password == '1234':
-        return {
-            'estado': 'success',
-            'mensaje': 'Datos correctos',
-            'data': {
-                'user_id': 1
-            }
-        }
-    
-    raise HTTPException(status_code=400, detail="Credenciales incorrectas")
-
 @app.get("/users")
 async def get_users():
-    cursor = connection.cursor(dictionary=true)
-    query = "SELECT * FROM users"
+    cursor = connection.cursor(dictionary=True) 
+    query = "SELECT * FROM cars"  
 
     try: 
         cursor.execute(query)
@@ -110,7 +91,7 @@ async def get_users():
 @app.post('/user')
 async def create_user(user: User):
     cursor = connection.cursor()
-    query = "INSERT INTO users (marca, modelo, color, fecha_de_compra) VALUES (%s, %s, %s, %s)"
+    query = "INSERT INTO cars (marca, modelo, color, fecha_de_compra) VALUES (%s, %s, %s, %s)" 
     values = (user.marca, user.modelo, user.color, user.fecha_de_compra)
 
     try:
@@ -126,7 +107,7 @@ async def create_user(user: User):
 @app.put('/user/{id}')
 async def update_user(user: User, id: int):
     cursor = connection.cursor()
-    query = "UPDATE users SET marca = %s, modelo = %s, color = %s, fecha_de_compra = %s WHERE id = %s"
+    query = "UPDATE cars SET marca = %s, modelo = %s, color = %s, fecha_de_compra = %s WHERE id = %s"  
     values = (user.marca, user.modelo, user.color, user.fecha_de_compra, id)
 
     try:
@@ -142,7 +123,7 @@ async def update_user(user: User, id: int):
 @app.delete('/user/{id}')
 async def delete_user(id: int):
     cursor = connection.cursor()
-    query = "DELETE FROM users WHERE id = %s"
+    query = "DELETE FROM cars WHERE id = %s" 
     values = (id,)
 
     try:
