@@ -77,5 +77,5 @@ Juan David Rodríguez - Desarrollador principal y encargado de la implementació
 
 Enlaces
 
-API 
-Frontend (si aplica): Enlace al frontend (si aplica)
+API https://github.com/jdu855/backend-FastAPI.git
+Frontend https://github.com/jdu855/frontedhtml.git
