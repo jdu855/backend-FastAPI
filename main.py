@@ -1,42 +1,34 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from typing import Annotated
-from jose import jwt, JWTError
-from pydantic import BaseModel
+from jose import jwt
+from pydantic import BaseModel 
 import mysql.connector
 from core.connection import connection
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timedelta
 
-# Crear la aplicación FastAPI
-app = FastAPI()
+app = FastAPI() 
 
-# Middleware para permitir solicitudes CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Permitir todas las direcciones
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Esquema de seguridad OAuth2 con flujo de contraseña
+# Esquema de seguridad OAuth2
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-# Modelo de datos para la autenticación
+
+class User(BaseModel):
+    marca: str
+    modelo: str
+    color: str
+    fecha_de_compra: str
 class UserLogin(BaseModel):
     email: str
     password: str
 
-# Simulación de usuarios en memoria (en una aplicación real, esto debería ir en una base de datos)
+# Simulación de usuarios en memoria
 users = {
-    "juan@gmail.com": {"username": "juan@gmail.com", "password": "1234", "email": "juan@gmail.com"}
+    "juan": {"username": "juan", "password": "1234", "email": "juan@gmail.com"}
 }
 
 # Función para generar el token JWT
 def encode_token(payload: dict) -> str:
-    expiration = datetime.utcnow() + timedelta(hours=1)  # El token expira en 1 hora
-    payload.update({"exp": expiration})
     token = jwt.encode(payload, key="secret", algorithm="HS256")
     return token
 
@@ -45,35 +37,40 @@ def decode_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     try:
         data = jwt.decode(token, key="secret", algorithms=["HS256"])
         return data
-    except JWTError:
-        raise HTTPException(status_code=403, detail="Token inválido o expirado")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Token no válido")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=403, detail="Invalid token")
 
-# Ruta para login y generación de token JWT
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.post("/login")
-def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    # Buscar el usuario en la base de datos simulada
-    user = users.get(form_data.username)
-    if not user or user["password"] != form_data.password:
-        raise HTTPException(status_code=400, detail="Credenciales incorrectas")
+def login(form_data: UserLogin):
+    # Buscar el usuario en la base de datos simulada por email
+    user = None
+    for u in users.values():
+        if u["email"] == form_data.email:
+            user = u
+            break
 
-    # Generar el token JWT
-    token = encode_token({"sub": user["username"], "email": user["email"]})
+    if not user or form_data.password != user["password"]:
+        raise HTTPException(status_code=404, detail="Incorrect user or password")
+    
+    token = encode_token({"email": user["email"]})
+
     return {"access_token": token, "token_type": "bearer"}
+@app.get("/users/mysql") 
+async def get_users_from_mysql():
+    cursor = connection.cursor(dictionary=True)  
+    query = "SELECT * FROM users" 
 
-# Ruta para obtener el perfil del usuario (requiere autenticación)
-@app.get("/users/profile")
-def profile(my_user: Annotated[dict, Depends(decode_token)]):
-    # Devuelve los datos del usuario autenticado
-    return {"profile": my_user}
-
-# Ruta para obtener usuarios desde MySQL (requiere autenticación)
-@app.get("/users/mysql")
-async def get_users_from_mysql(current_user: Annotated[dict, Depends(decode_token)]):
-    cursor = connection.cursor(dictionary=True)
-    query = "SELECT * FROM users"
-    try:
+    try: 
         cursor.execute(query)
         users = cursor.fetchall()
         return users
@@ -81,27 +78,40 @@ async def get_users_from_mysql(current_user: Annotated[dict, Depends(decode_toke
         raise HTTPException(status_code=500, detail=f"Error al obtener usuarios de MySQL: {err}")
     finally:
         cursor.close()
+    
 
-# Ruta para obtener la lista de usuarios (requiere autenticación)
+@app.post("/login")
+def login(user: UserLogin):
+    if user.email == 'juan@gmail.com' and user.password == '1234':
+        return {
+            'estado': 'success',
+            'mensaje': 'Datos correctos',
+            'data': {
+                'user_id': 1
+            }
+        }
+    
+    raise HTTPException(status_code=400, detail="Credenciales incorrectas")
+
 @app.get("/users")
-async def get_users(current_user: Annotated[dict, Depends(decode_token)]):
-    cursor = connection.cursor(dictionary=True)
+async def get_users():
+    cursor = connection.cursor(dictionary=true)
     query = "SELECT * FROM users"
-    try:
+
+    try: 
         cursor.execute(query)
         users = cursor.fetchall()
         return users
     except mysql.connector.Error as err:
-        raise HTTPException(status_code=500, detail=f"Error al obtener usuarios: {err}")
+        raise HTTPException(status_code=500, detail=f"Error al conectar con mysql : {err}")
     finally:
         cursor.close()
 
-# Ruta para crear un usuario (requiere autenticación)
-@app.post("/user")
-async def create_user(user: UserLogin, current_user: Annotated[dict, Depends(decode_token)]):
+@app.post('/user')
+async def create_user(user: User):
     cursor = connection.cursor()
-    query = "INSERT INTO users (email, password) VALUES (%s, %s)"
-    values = (user.email, user.password)
+    query = "INSERT INTO users (marca, modelo, color, fecha_de_compra) VALUES (%s, %s, %s, %s)"
+    values = (user.marca, user.modelo, user.color, user.fecha_de_compra)
 
     try:
         cursor.execute(query, values)
@@ -112,25 +122,25 @@ async def create_user(user: UserLogin, current_user: Annotated[dict, Depends(dec
     finally:
         cursor.close()
 
-# Ruta para actualizar un usuario (requiere autenticación)
-@app.put("/user/{id}")
-async def update_user(user: UserLogin, id: int, current_user: Annotated[dict, Depends(decode_token)]):
+
+@app.put('/user/{id}')
+async def update_user(user: User, id: int):
     cursor = connection.cursor()
-    query = "UPDATE users SET email = %s, password = %s WHERE id = %s"
-    values = (user.email, user.password, id)
+    query = "UPDATE users SET marca = %s, modelo = %s, color = %s, fecha_de_compra = %s WHERE id = %s"
+    values = (user.marca, user.modelo, user.color, user.fecha_de_compra, id)
 
     try:
         cursor.execute(query, values)
         connection.commit()
         return {"message": "Usuario actualizado correctamente"}
     except (mysql.connector.Error, ValueError) as err:
-        raise HTTPException(status_code=500, detail=f"Error al actualizar el usuario: {err}")
+        raise HTTPException(status_code=500, detail=f"Error al guardar el usuario: {err}")
     finally:
         cursor.close()
 
-# Ruta para eliminar un usuario (requiere autenticación)
-@app.delete("/user/{id}")
-async def delete_user(id: int, current_user: Annotated[dict, Depends(decode_token)]):
+
+@app.delete('/user/{id}')
+async def delete_user(id: int):
     cursor = connection.cursor()
     query = "DELETE FROM users WHERE id = %s"
     values = (id,)
